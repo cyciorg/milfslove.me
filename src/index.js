@@ -82,38 +82,6 @@ app.get('/download-docker-compose', (req, res) => {
     }
 });
 
-app.get('/download', (req, res) => {
-    const pm2ConfigString = req.query.pm2Config;
-
-    try {
-        if (!pm2ConfigString) {
-            throw new Error('PM2 ecosystem configuration is required.');
-        }
-
-        // Generate Dockerfile content based on the provided PM2 configuration
-        const dockerfileContent = generateDockerfile(pm2ConfigString);
-
-        // Create a new zip archive
-        const archive = archiver('zip', {
-            zlib: { level: 9 } // Sets the compression level
-        });
-
-        // Add the Dockerfile to the archive
-        archive.append(dockerfileContent, { name: 'Dockerfile' });
-
-        // Finalize the archive
-        archive.finalize();
-
-        // Set the appropriate headers for zip file download
-        res.attachment('dockerfiles.zip');
-
-        // Pipe the zip archive to the response stream
-        archive.pipe(res);
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Failed to generate zip file.');
-    }
-});
 
 app.listen(port, () => {
     console.log(`App listening at http://localhost:${port}`);
