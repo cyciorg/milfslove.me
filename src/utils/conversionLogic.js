@@ -79,15 +79,6 @@ function convertToDockerCompose(pm2ConfigString) {
             dockerComposeContent += '\n';
         });
 
-        // Generate Dockerfile based on the first application script provided
-        if (pm2Config.apps[0] && pm2Config.apps[0].script) {
-            const dockerfilePath = 'Dockerfile';
-            const scriptPath = pm2Config.apps[0].script;
-            const dockerfileContent = `FROM node:latest\nWORKDIR /usr/src/app\nCOPY ${scriptPath} ./\nRUN chmod +x ${scriptPath}\nEXPOSE ${pm2Config.apps[0].port}\nCMD ["node", "${scriptPath}"]`;
-            fs.writeFileSync(dockerfilePath, dockerfileContent);
-            console.log(`Dockerfile created at ${dockerfilePath}`);
-        }
-
         return dockerComposeContent;
     } catch (error) {
         console.error('Error converting PM2 ecosystem configuration:', error.message);
@@ -95,6 +86,31 @@ function convertToDockerCompose(pm2ConfigString) {
     }
 }
 
+function generateDockerfile(pm2ConfigString) {
+    try {
+        // Parse the PM2 configuration string as JSON
+        const pm2Config = JSON.parse(pm2ConfigString);
+
+        // Ensure the PM2 config is an object with "apps" array property
+        if (!pm2Config || !Array.isArray(pm2Config.apps) || pm2Config.apps.length === 0) {
+            throw new Error('Invalid PM2 ecosystem configuration.');
+        }
+
+        // Get the script path from the first app
+        const scriptPath = pm2Config.apps[0].script;
+
+        // Generate Dockerfile content
+        const dockerfileContent = `FROM node:latest\nWORKDIR /usr/src/app\nCOPY ${scriptPath} ./\nRUN chmod +x ${scriptPath}\nEXPOSE ${pm2Config.apps[0].port}\nCMD ["node", "${scriptPath}"]`;
+
+        // Return the Dockerfile content
+        return dockerfileContent;
+    } catch (error) {
+        console.error('Error generating Dockerfile:', error.message);
+        throw error; // Re-throw the error to be caught by the caller
+    }
+}
+
 module.exports = {
-    convertToDockerCompose
+    convertToDockerCompose,
+    generateDockerfile
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const { convertToDockerCompose } = require('./utils/conversionLogic');
+const { convertToDockerCompose, generateDockerfile } = require('./utils/conversionLogic');
 const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
@@ -121,30 +121,6 @@ app.get('/download', (req, res) => {
         res.status(500).send('Failed to generate zip file.');
     }
 });
-
-function generateDockerfile(pm2ConfigString) {
-    try {
-        // Parse the PM2 configuration string as JSON
-        const pm2Config = JSON.parse(pm2ConfigString);
-
-        // Ensure the PM2 config is an object with "apps" array property
-        if (!pm2Config || !Array.isArray(pm2Config.apps) || pm2Config.apps.length === 0) {
-            throw new Error('Invalid PM2 ecosystem configuration.');
-        }
-
-        // Get the script path from the first app
-        const scriptPath = pm2Config.apps[0].script;
-
-        // Generate Dockerfile content
-        const dockerfileContent = `FROM node:latest\nWORKDIR /usr/src/app\nCOPY ${scriptPath} ./\nRUN chmod +x ${scriptPath}\nEXPOSE ${pm2Config.apps[0].port}\nCMD ["node", "${scriptPath}"]`;
-
-        // Return the Dockerfile content
-        return dockerfileContent;
-    } catch (error) {
-        console.error('Error generating Dockerfile:', error.message);
-        throw error; // Re-throw the error to be caught by the caller
-    }
-}
 
 app.listen(port, () => {
     console.log(`App listening at http://localhost:${port}`);
