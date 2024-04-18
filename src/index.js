@@ -10,13 +10,6 @@ const port = 5578;
 
 app.use(bodyParser.text());
 
-// Define the directory to store Dockerfiles
-const dockerfilesDir = path.join(__dirname, 'dockerfiles');
-
-// Ensure the directory exists, create it if not
-if (!fs.existsSync(dockerfilesDir)) {
-    fs.mkdirSync(dockerfilesDir);
-}
 
 // Update the express.static middleware to serve only HTML, CSS, and JavaScript files
 app.use(express.static(path.join(__dirname, 'public'), {
