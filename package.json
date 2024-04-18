@@ -1,0 +1,16 @@
+{
+  "name": "milfslove.me",
+  "version": "1.0.0",
+  "description": "A simple web server to handle transfering from a pm2 ecosystem to a docker-compose",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Phil",
+  "license": "MIT",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "body-parser": "^1.20.2",
+    "express": "^4.19.2"
+  }
+}

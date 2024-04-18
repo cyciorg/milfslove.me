@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM2 to Docker Compose Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full p-6 bg-white rounded-lg shadow-md">
+        <h1 class="text-2xl font-semibold mb-4">Convert PM2 Ecosystem Configuration to Docker Compose</h1>
+        <form id="convertForm" class="space-y-4" action="/convert" method="POST">
+            <div>
+                <label for="pm2Config" class="block mb-1">PM2 Ecosystem Configuration:</label>
+                <textarea id="pm2Config" name="pm2Config" rows="10"
+                    class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"></textarea>
+                <p id="pm2ConfigError" class="text-red-500 text-sm mt-1 hidden">Please enter the PM2 ecosystem
+                    configuration.</p>
+            </div>
+            <div>
+                <button type="submit" id="convertBtn"
+                    class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300">Convert
+                    to Docker Compose</button>
+            </div>
+            <div id="loadingSpinner" class="hidden text-center mt-4">
+                <svg class="animate-spin h-5 w-5 mr-3 inline-block text-blue-500" xmlns="http://www.w3.org/2000/svg"
+                    fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 4.418 3.582 8 8 8v-4c-2.764 0-5.245-1.131-7.071-2.965L6 14.29z">
+                    </path>
+                </svg>
+                <span class="text-blue-500">Converting...</span>
+            </div>
+            <div id="conversionResult" class="hidden mt-4">
+                <h2 class="text-lg font-semibold mb-2">Docker Compose:</h2>
+                <textarea id="dockerCompose" rows="10"
+                    class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"></textarea>
+                <a id="downloadDockerfileLink" class="block mt-2 text-blue-500 hover:underline" href="#"
+                    download="Dockerfile">Download
+                    Dockerfile</a>
+                <a id="downloadLink" class="block mt-2 text-blue-500 hover:underline" href="#"
+                    download="docker-compose.yml">Download Docker Compose File</a>
+
+            </div>
+        </form>
+    </div>
+
+    <script>
+        console.log('Script is running!');
+        const convertForm = document.getElementById('convertForm');
+        const pm2ConfigTextarea = document.getElementById('pm2Config');
+        const pm2ConfigError = document.getElementById('pm2ConfigError');
+        const convertBtn = document.getElementById('convertBtn');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const conversionResult = document.getElementById('conversionResult');
+        const dockerComposeTextarea = document.getElementById('dockerCompose');
+
+        convertForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!pm2ConfigTextarea.value.trim()) {
+                pm2ConfigError.classList.remove('hidden');
+                return;
+            }
+
+            pm2ConfigError.classList.add('hidden');
+            convertBtn.disabled = true;
+            loadingSpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: pm2ConfigTextarea.value
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to convert PM2 ecosystem configuration.');
+                }
+
+                const dockerComposeContent = await response.text();
+                dockerComposeTextarea.value = dockerComposeContent;
+                conversionResult.classList.remove('hidden');
+
+                // Update download links with PM2 config value
+                const pm2ConfigValue = encodeURIComponent(pm2ConfigTextarea.value);
+                document.getElementById('downloadDockerfileLink').href = `/download-dockerfile?pm2Config=${pm2ConfigValue}`;
+                document.getElementById('downloadLink').href = `/download-docker-compose?pm2Config=${pm2ConfigValue}`;
+            } catch (error) {
+                console.error(error);
+                alert('An error occurred while converting the PM2 ecosystem configuration.');
+            } finally {
+                convertBtn.disabled = false;
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>
