@@ -38,20 +38,16 @@ app.post('/convert', (req, res) => {
 
 app.get('/download-dockerfile', (req, res) => {
     const pm2ConfigString = req.query.pm2Config;
-
     try {
         if (!pm2ConfigString) {
             throw new Error('PM2 ecosystem configuration is required.');
         }
 
-        // Generate Dockerfile content based on the provided PM2 configuration
         const dockerfileContent = generateDockerfile(pm2ConfigString);
 
-        // Set the appropriate headers for file download
         res.setHeader('Content-Type', 'text/plain');
         res.setHeader('Content-Disposition', 'attachment; filename="Dockerfile"');
 
-        // Send the Dockerfile content as response
         res.send(dockerfileContent);
     } catch (error) {
         console.error(error);
@@ -67,14 +63,11 @@ app.get('/download-docker-compose', (req, res) => {
             throw new Error('PM2 ecosystem configuration is required.');
         }
 
-        // Generate Docker Compose content based on the provided PM2 configuration
         const dockerComposeContent = convertToDockerCompose(pm2ConfigString);
 
-        // Set the appropriate headers for file download
         res.setHeader('Content-Type', 'text/yaml');
         res.setHeader('Content-Disposition', 'attachment; filename="docker-compose.yml"');
 
-        // Send the Docker Compose content as response
         res.send(dockerComposeContent);
     } catch (error) {
         console.error(error);

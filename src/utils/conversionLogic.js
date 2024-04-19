@@ -2,26 +2,20 @@ const fs = require('fs');
 
 function convertToDockerCompose(pm2ConfigString) {
     try {
-        console.log('PM2 Configuration String:', pm2ConfigString); // Debugging: Log the PM2 configuration string
-
-        // Parse the PM2 configuration string as JSON
         const pm2Config = JSON.parse(pm2ConfigString);
 
-        console.log('Parsed PM2 Configuration:', pm2Config); // Debugging: Log the parsed PM2 configuration object
-
-        // Validate the parsed PM2 configuration
         if (!pm2Config || !pm2Config.apps || !Array.isArray(pm2Config.apps) || pm2Config.apps.length === 0) {
             throw new Error('Invalid PM2 ecosystem configuration.');
         }
 
-        let dockerComposeContent = `version: '3'\nservices:\n`;
+        let dockerComposeContent = `services:\n`;
 
         pm2Config.apps.forEach((app, index) => {
-            const serviceName = `app${index + 1}`;
+            const serviceName = `${app.name}${index + 1}`;
 
             dockerComposeContent += `  ${serviceName}:\n`;
-            dockerComposeContent += `    image: ${app.script}_image\n`;
-
+            dockerComposeContent += `    image: node:latest\n`;
+            dockerComposeContent += `    container_name: ${app.name}\n`
             if (app.env) {
                 dockerComposeContent += `    environment:\n`;
                 Object.entries(app.env).forEach(([key, value]) => {
@@ -29,9 +23,11 @@ function convertToDockerCompose(pm2ConfigString) {
                 });
             }
 
-            if (app.port) {
+            if (app.ports) {
                 dockerComposeContent += `    ports:\n`;
-                dockerComposeContent += `      - "${app.port}:${app.port}"\n`;
+                app.ports.forEach(port => {
+                    dockerComposeContent += `      - "${port}"\n`;
+                });
             }
 
             if (app.volumes) {
@@ -59,9 +55,9 @@ function convertToDockerCompose(pm2ConfigString) {
                 dockerComposeContent += `    restart: ${app.restart_policy}\n`;
             }
 
-            if (app.health_check) {
+            if (app.healthcheck) {
                 dockerComposeContent += `    healthcheck:\n`;
-                dockerComposeContent += `      test: ${app.health_check}\n`;
+                dockerComposeContent += `      test: ${app.healthcheck}\n`;
             }
 
             if (app.command) {
@@ -73,7 +69,73 @@ function convertToDockerCompose(pm2ConfigString) {
             }
 
             if (app.build) {
-                dockerComposeContent += `    build: ${app.build}\n`;
+                dockerComposeContent += `    build:\n`;
+                dockerComposeContent += `      context: .\n`;
+                dockerComposeContent += `      dockerfile: ./Dockerfile\n`;
+            }
+
+            if (app.cap_add) {
+                dockerComposeContent += `    cap_add:\n`;
+                app.cap_add.forEach(capability => {
+                    dockerComposeContent += `      - ${capability}\n`;
+                });
+            }
+
+            if (app.cap_drop) {
+                dockerComposeContent += `    cap_drop:\n`;
+                app.cap_drop.forEach(capability => {
+                    dockerComposeContent += `      - ${capability}\n`;
+                });
+            }
+
+            if (app.devices) {
+                dockerComposeContent += `    devices:\n`;
+                app.devices.forEach(device => {
+                    dockerComposeContent += `      - ${device}\n`;
+                });
+            }
+
+            if (app.sysctls) {
+                dockerComposeContent += `    sysctls:\n`;
+                Object.entries(app.sysctls).forEach(([key, value]) => {
+                    dockerComposeContent += `      ${key}: ${value}\n`;
+                });
+            }
+
+            if (app.extra_hosts) {
+                dockerComposeContent += `    extra_hosts:\n`;
+                app.extra_hosts.forEach(host => {
+                    dockerComposeContent += `      - ${host}\n`;
+                });
+            }
+
+            if (app.user) {
+                dockerComposeContent += `    user: ${app.user}\n`;
+            }
+
+            if (app.labels) {
+                dockerComposeContent += `    labels:\n`;
+                Object.entries(app.labels).forEach(([key, value]) => {
+                    dockerComposeContent += `      ${key}: ${value}\n`;
+                });
+            }
+
+            if (app.environment_file) {
+                dockerComposeContent += `    env_file: ${app.environment_file}\n`;
+            }
+
+            if (app.tmpfs) {
+                dockerComposeContent += `    tmpfs:\n`;
+                app.tmpfs.forEach(tmpfs => {
+                    dockerComposeContent += `      - ${tmpfs}\n`;
+                });
+            }
+
+            if (app.secrets) {
+                dockerComposeContent += `    secrets:\n`;
+                app.secrets.forEach(secret => {
+                    dockerComposeContent += `      - ${secret}\n`;
+                });
             }
 
             dockerComposeContent += '\n';
@@ -88,25 +150,56 @@ function convertToDockerCompose(pm2ConfigString) {
 
 function generateDockerfile(pm2ConfigString) {
     try {
-        // Parse the PM2 configuration string as JSON
         const pm2Config = JSON.parse(pm2ConfigString);
 
-        // Ensure the PM2 config is an object with "apps" array property
-        if (!pm2Config || !Array.isArray(pm2Config.apps) || pm2Config.apps.length === 0) {
+        if (!pm2Config || !pm2Config.apps || !Array.isArray(pm2Config.apps) || pm2Config.apps.length === 0) {
             throw new Error('Invalid PM2 ecosystem configuration.');
         }
+        
+        let dockerfileContent = '';
+        
+        dockerfileContent += `# Stage 1: Install Dependencies\n`;
+        dockerfileContent += `FROM node:latest AS builder\n`;
+        dockerfileContent += `WORKDIR /usr/src/app\n`;
+        
+        dockerfileContent += `COPY package*.json ./\n`;
+        dockerfileContent += `RUN npm install --production\n`;
+        
+        pm2Config.apps.forEach((app, index) => {
+            const scriptPath = app.script;
+            dockerfileContent += `COPY ${scriptPath} ./${index + 1}/\n`;
+            dockerfileContent += `RUN chmod +x ./${index + 1}/${scriptPath}\n`;
+        });
+        
+        dockerfileContent += `\n# Stage 2: Runtime\n`;
+        dockerfileContent += `FROM node:alpine\n`;
+        dockerfileContent += `WORKDIR /usr/src/app\n`;
+        
+        pm2Config.apps.forEach((app, index) => {
+            dockerfileContent += `COPY --from=builder /usr/src/app/${index + 1} ./\n`;
+        });
+        
+        const ports = pm2Config.apps.flatMap(app => app.port ? [app.port] : []);
+        if (ports.length > 0) {
+            dockerfileContent += `EXPOSE ${ports.join(' ')}\n`;
+        }
+        
+        pm2Config.apps.forEach(app => {
+            Object.entries(app.env).forEach(([key, value]) => {
+                dockerfileContent += `ENV ${key}=${value}\n`;
+            });
+        });
+        
+        dockerfileContent += `HEALTHCHECK --interval=30s --timeout=10s CMD curl --fail http://localhost:${ports[0]}/|| exit 1\n`;
 
-        // Get the script path from the first app
-        const scriptPath = pm2Config.apps[0].script;
+        dockerfileContent += `USER node\n`;
 
-        // Generate Dockerfile content
-        const dockerfileContent = `FROM node:latest\nWORKDIR /usr/src/app\nCOPY ${scriptPath} ./\nRUN chmod +x ${scriptPath}\nEXPOSE ${pm2Config.apps[0].port}\nCMD ["node", "${scriptPath}"]`;
+        dockerfileContent += `CMD ["node", "${pm2Config.apps[0].script}"]\n`;
 
-        // Return the Dockerfile content
         return dockerfileContent;
     } catch (error) {
         console.error('Error generating Dockerfile:', error.message);
-        throw error; // Re-throw the error to be caught by the caller
+        throw error;
     }
 }
 
